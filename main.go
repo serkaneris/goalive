@@ -68,30 +68,43 @@ func main() {
 		fmt.Printf("Previous GOMAXPROCS setting: %d\n", prevMaxProcs)
 	}
 
-	if *inputFile == "" {
+	var subdomains []string
+
+	// Check if subdomains are piped through stdin
+	stat, _ := os.Stdin.Stat()
+	if (stat.Mode() & os.ModeCharDevice) == 0 {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line != "" {
+				subdomains = append(subdomains, line)
+			}
+		}
+	} else if *inputFile == "" {
+		// Read from file if stdin is not piped and inputFile is not specified
 		fmt.Println("Error: Input file not specified")
 		os.Exit(1)
-	}
-
-	file, err := os.Open(*inputFile)
-	if err != nil {
-		fmt.Printf("Error: File not found: %s\n", *inputFile)
-		os.Exit(1)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	var subdomains []string
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line != "" {
-			subdomains = append(subdomains, line)
+	} else {
+		// Read from file if inputFile is specified
+		file, err := os.Open(*inputFile)
+		if err != nil {
+			fmt.Printf("Error: File not found: %s\n", *inputFile)
+			os.Exit(1)
 		}
-	}
+		defer file.Close()
 
-	if err := scanner.Err(); err != nil {
-		fmt.Printf("Error: %s\n", err.Error())
-		os.Exit(1)
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line != "" {
+				subdomains = append(subdomains, line)
+			}
+		}
+
+		if err := scanner.Err(); err != nil {
+			fmt.Printf("Error: %s\n", err.Error())
+			os.Exit(1)
+		}
 	}
 
 	timeoutDuration := time.Duration(*timeout) * time.Millisecond
@@ -104,6 +117,3 @@ func main() {
 
 	wg.Wait()
 }
-
-
-
